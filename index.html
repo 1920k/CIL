@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Sistema de Login</h1>
+
+    <div class="box">
+      <h2>Registrar</h2>
+      <input type="text" id="regUser" placeholder="Usuário">
+      <input type="password" id="regPass" placeholder="Senha">
+      <button onclick="register()">Registrar</button>
+    </div>
+
+    <div class="box">
+      <h2>Login</h2>
+      <input type="text" id="logUser" placeholder="Usuário">
+      <input type="password" id="logPass" placeholder="Senha">
+      <button onclick="login()">Entrar</button>
+    </div>
+
+    <p id="result"></p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

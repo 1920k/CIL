@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Sistema de Login</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h2>Registrar</h2>
+  <input type="text" id="regUser" placeholder="Usuário">
+  <input type="password" id="regPass" placeholder="Senha">
+  <button onclick="register()">Registrar</button>
+
+  <h2>Login</h2>
+  <input type="text" id="logUser" placeholder="Usuário">
+  <input type="password" id="logPass" placeholder="Senha">
+  <button onclick="login()">Entrar</button>
+
+  <h2>Lista de Usuários</h2>
+  <button onclick="loadUsers()">Ver Usuários</button>
+  <ul id="userList"></ul>
+
+  <p id="result"></p>
+
+<script>
+async function register() {
+  const username = document.getElementById("regUser").value;
+  const password = document.getElementById("regPass").value;
+
+  try {
+    const res = await fetch("http://localhost:3000/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+      credentials: "include"
+    });
+    const data = await res.json();
+    document.getElementById("result").innerText = data.message || data.error;
+  } catch (err) {
+    document.getElementById("result").innerText = "Erro ao conectar com o servidor.";
+  }
+}
+
+async function login() {
+  const username = document.getElementById("logUser").value;
+  const password = document.getElementById("logPass").value;
+
+  try {
+    const res = await fetch("http://localhost:3000/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+      credentials: "include"
+    });
+    const data = await res.json();
+
+    if (data.message === "Login bem-sucedido!") {
+      sessionStorage.setItem("usuarioLogado", username);
+      window.location.href = "http://localhost:3000/app";
+    } else {
+      document.getElementById("result").innerText = data.error;
+    }
+  } catch (err) {
+    document.getElementById("result").innerText = "Erro ao conectar com o servidor.";
+  }
+}
+
+async function loadUsers() {
+  try {
+    const res = await fetch("http://localhost:3000/users", { credentials: "include" });
+    if (res.status === 401) {
+      document.getElementById("result").innerText = "Faça login primeiro!";
+      return;
+    }
+    const users = await res.json();
+    const list = document.getElementById("userList");
+    list.innerHTML = "";
+    users.forEach(u => {
+      const li = document.createElement("li");
+      li.textContent = `ID: ${u.id} | Usuário: ${u.username}`;
+      list.appendChild(li);
+    });
+  } catch (err) {
+    document.getElementById("result").innerText = "Erro ao carregar usuários.";
+  }
+}
+</script>
+</body>
+</html>
