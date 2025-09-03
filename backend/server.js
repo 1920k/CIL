@@ -1,21 +1,20 @@
 import express from "express";
-import bcrypt from "bcryptjs";
 import session from "express-session";
-import cors from "cors";
-import { Low, JSONFile } from "lowdb";
-import { join } from "path";
+import { Low } from "lowdb";
+import { JSONFile } from "lowdb/node";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-// Configuração do banco com lowdb
-const file = join(process.cwd(), "db.json");
-const adapter = new JSONFile(file);
-const db = new Low(adapter);
-
+// Banco com lowdb
+const adapter = new JSONFile(path.join(__dirname, "db.json"));
+const db = new Low(adapter, { users: [] });
 await db.read();
 db.data ||= { users: [] };
-await db.write();
 
 // Middlewares
 app.use(cors({ origin: "http://127.0.0.1:5500", credentials: true }));
