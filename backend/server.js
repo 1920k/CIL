@@ -1,54 +1,60 @@
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const session = require("express-session");
-const path = require("path");
-const db = require("./db");
+import express from "express";
+import bcrypt from "bcryptjs";
+import session from "express-session";
+import cors from "cors";
+import { Low, JSONFile } from "lowdb";
+import { join } from "path";
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Configuração do banco com lowdb
+const file = join(process.cwd(), "db.json");
+const adapter = new JSONFile(file);
+const db = new Low(adapter);
+
+await db.read();
+db.data ||= { users: [] };
+await db.write();
+
+// Middlewares
+app.use(cors({ origin: "http://127.0.0.1:5500", credentials: true }));
 app.use(express.json());
+
 app.use(session({
   secret: "segredo_super_secreto",
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 60 * 60 * 1000 } // 1 hora
+  cookie: { maxAge: 60 * 60 * 1000 }
 }));
 
-// Servir frontend
-app.use(express.static(path.join(__dirname, "../frontend")));
-
-// Registro de usuário
-app.post("/register", (req, res) => {
+// Registrar usuário
+app.post("/register", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: "Preencha todos os campos" });
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
+  const existing = db.data.users.find(u => u.username === username);
+  if (existing) return res.status(400).json({ error: "Usuário já existe" });
 
-  db.run("INSERT INTO users (username, password) VALUES (?, ?)",
-    [username, hashedPassword],
-    function(err) {
-      if (err) return res.status(400).json({ error: "Usuário já existe" });
-      res.json({ message: "Usuário registrado com sucesso!" });
-    }
-  );
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  const newUser = { id: Date.now(), username, password: hashedPassword };
+  db.data.users.push(newUser);
+  await db.write();
+
+  res.json({ message: "Usuário registrado com sucesso!" });
 });
 
 // Login
-app.post("/login", (req, res) => {
+app.post("/login", async (req, res) => {
   const { username, password } = req.body;
+  const user = db.data.users.find(u => u.username === username);
+  if (!user) return res.status(400).json({ error: "Usuário não encontrado" });
 
-  db.get("SELECT * FROM users WHERE username = ?", [username], (err, user) => {
-    if (!user) return res.status(400).json({ error: "Usuário não encontrado" });
+  const valid = bcrypt.compareSync(password, user.password);
+  if (!valid) return res.status(400).json({ error: "Senha incorreta" });
 
-    const valid = bcrypt.compareSync(password, user.password);
-    if (!valid) return res.status(400).json({ error: "Senha incorreta" });
-
-    // Cria sessão
-    req.session.user = { id: user.id, username: user.username };
-    res.json({ message: "Login bem-sucedido!" });
-  });
+  req.session.user = { id: user.id, username: user.username };
+  res.json({ message: "Login bem-sucedido!" });
 });
 
 // Logout
@@ -60,26 +66,18 @@ app.post("/logout", (req, res) => {
 // Middleware de autenticação
 function checkAuth(req, res, next) {
   if (req.session.user) next();
-  else res.redirect("/"); // redireciona para login se não estiver logado
+  else res.status(401).json({ error: "Não autorizado" });
 }
 
-// Rota protegida
+// Rota protegida para app.html
 app.get("/app", checkAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/app.html"));
+  res.sendFile(join(process.cwd(), "../frontend/app.html"));
 });
 
 // Lista de usuários (protegida)
 app.get("/users", checkAuth, (req, res) => {
-  db.all("SELECT id, username FROM users", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: "Erro no servidor" });
-    res.json(rows);
-  });
+  const usersList = db.data.users.map(u => ({ id: u.id, username: u.username }));
+  res.json(usersList);
 });
 
-// Rota raiz -> index.html
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
-});
-
-// Inicia servidor
 app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`));
